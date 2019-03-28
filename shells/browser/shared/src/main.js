@@ -16,10 +16,12 @@ const SUPPORTS_PROFILING_KEY = 'React::DevTools::supportsProfiling';
 
 let panelCreated = false;
 
+console.log('%c[main]', 'font-weight: bold; color: purple;');
 function createPanelIfReactLoaded() {
   if (panelCreated) {
     return;
   }
+console.log('%c[main] createPanelIfReactLoaded()', 'font-weight: bold; color: purple;');
 
   chrome.devtools.inspectedWindow.eval(
     'window.__REACT_DEVTOOLS_GLOBAL_HOOK__ && window.__REACT_DEVTOOLS_GLOBAL_HOOK__.renderers.size > 0',
@@ -45,6 +47,7 @@ function createPanelIfReactLoaded() {
       let root = null;
 
       function initBridgeAndStore() {
+console.log('%c[main] initBridgeAndStore()', 'font-weight: bold; color: purple;');
         let hasPortBeenDisconnected = false;
         const port = chrome.runtime.connect({
           name: '' + chrome.devtools.inspectedWindow.tabId,
@@ -84,7 +87,9 @@ function createPanelIfReactLoaded() {
 
         // Initialize the backend only once the Store has been initialized.
         // Otherwise the Store may miss important initial tree op codes.
+console.log('%c[main] initBridgeAndStore() injecting backend...', 'font-weight: bold; color: purple;');
         inject(chrome.runtime.getURL('build/backend.js'));
+console.log('%c[main] initBridgeAndStore() injected backend', 'font-weight: bold; color: purple;');
 
         const viewElementSource = createViewElementSource(bridge, store);
 

@@ -2,13 +2,36 @@
 
 import nullthrows from 'nullthrows';
 import { installHook } from 'src/hook';
+import { attach } from 'src/renderer';
+
+function injectCode(code) {
+  const script = document.createElement('script');
+  script.textContent = code;
+
+  // This script runs before the <head> element is created,
+  // so we add the script to <html> instead.
+  nullthrows(document.documentElement).appendChild(script);
+  nullthrows(script.parentNode).removeChild(script);
+}
+
+function injectTag(source) {
+  const script = document.createElement('script');
+  script.async = false;
+  script.src = source;
+
+  // This script runs before the <head> element is created,
+  // so we add the script to <html> instead.
+  nullthrows(document.documentElement).appendChild(script);
+  // TODO ? nullthrows(script.parentNode).removeChild(script);
+}
 
 let lastDetectionResult;
+console.log('%c[GlobalHook]', 'font-weight: bold; color: green;');
 
-// We want to detect when a renderer attaches, and notify the "background
-// page" (which is shared between tabs and can highlight the React icon).
-// Currently we are in "content script" context, so we can't listen
-// to the hook directly (it will be injected directly into the page).
+// We want to detect when a renderer attaches, and notify the "background page"
+// (which is shared between tabs and can highlight the React icon).
+// Currently we are in "content script" context, so we can't listen to the hook directly
+// (it will be injected directly into the page).
 // So instead, the hook will use postMessage() to pass message to us here.
 // And when this happens, we'll send a message to the "background page".
 window.addEventListener('message', function(evt) {
@@ -51,14 +74,15 @@ window.__REACT_DEVTOOLS_GLOBAL_HOOK__.nativeWeakMap = WeakMap;
 window.__REACT_DEVTOOLS_GLOBAL_HOOK__.nativeSet = Set;
 `;
 
+localStorage.setItem('test-123', 'abc');
+
+//const rendererSource = chrome.runtime.getURL('build/renderer.js');
+//console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting renderer:', rendererSource);
+//injectTag(rendererSource);
+console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting renderer');
+injectCode(';(' + attach.toString() + '(window))');
+
 // Inject a `__REACT_DEVTOOLS_GLOBAL_HOOK__` global so that React can detect that the
 // devtools are installed (and skip its suggestion to install the devtools).
-const js =
-  ';(' + installHook.toString() + '(window))' + saveNativeValues + detectReact;
-
-// This script runs before the <head> element is created, so we add the script
-// to <html> instead.
-const script = document.createElement('script');
-script.textContent = js;
-nullthrows(document.documentElement).appendChild(script);
-nullthrows(script.parentNode).removeChild(script);
+console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting hook');
+injectCode(';(' + installHook.toString() + '(window))' + saveNativeValues + detectReact);

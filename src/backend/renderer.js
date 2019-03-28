@@ -38,6 +38,7 @@ import type {
 } from './types';
 import type { InspectedElement } from 'src/devtools/views/elements/types';
 
+console.log('%c[renderer]', 'font-weight: bold; color: purple;');
 function getInternalReactConstants(version) {
   const ReactSymbols = {
     CONCURRENT_MODE_NUMBER: 0xeacf,
@@ -162,6 +163,7 @@ export function attach(
   renderer: ReactRenderer,
   global: Object
 ): RendererInterface {
+console.log('%c[renderer] attach()', 'font-weight: bold; color: purple;', 'hook:', hook, 'renderer:', renderer);
   const {
     ReactTypeOfWork,
     ReactSymbols,
@@ -1538,6 +1540,7 @@ export function attach(
   }
 
   function startProfiling() {
+console.log('%c[renderer] startProfiling()', 'font-weight: bold; color: purple;');
     // Capture initial values as of the time profiling starts.
     // It's important we snapshot both the durations and the id-to-root map,
     // since either of these may change during the profiling session

@@ -5,11 +5,13 @@ import Agent from './agent';
 
 import { attach } from './renderer';
 
+console.log('%c[backend/idnex]', 'font-weight: bold; color: teal;');
 export function initBackend(
   hook: DevToolsHook,
   agent: Agent,
   global: Object
 ): void {
+  console.log('%c[backend/idnex] initBackend()', 'font-weight: bold; color: teal;');
   const subs = [
     hook.sub(
       'renderer-attached',
@@ -33,6 +35,8 @@ export function initBackend(
   ];
 
   const attachRenderer = (id: number, renderer: ReactRenderer) => {
+    console.log('%c[backend/idnex] attachRenderer() skipping id:', 'font-weight: bold; color: teal;', id);
+    return;
     const rendererInterface = attach(hook, id, renderer, global);
     hook.rendererInterfaces.set(id, rendererInterface);
     hook.emit('renderer-attached', {

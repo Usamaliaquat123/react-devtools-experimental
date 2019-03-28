@@ -573,6 +573,7 @@ export default class Store extends EventEmitter {
   };
 
   onProfilingStatus = (isProfiling: boolean) => {
+console.log('%c[store] onProfilingStatus()', 'font-weight: bold; color: purple;', isProfiling);
     if (isProfiling) {
       this._profilingOperations = new Map();
       this._profilingSnapshot = new Map();

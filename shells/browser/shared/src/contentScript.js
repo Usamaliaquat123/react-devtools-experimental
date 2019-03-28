@@ -3,7 +3,9 @@
 let backendDisconnected: boolean = false;
 let backendInitialized: boolean = false;
 
+console.log('%c[content-script]', 'font-weight: bold; color: pink;');
 function sayHelloToBackend() {
+console.log('%c[content-script] sayHelloToBackend()', 'font-weight: bold; color: pink;');
   window.postMessage(
     {
       source: 'react-devtools-content-script',
@@ -29,6 +31,7 @@ function handleMessageFromPage(evt) {
     evt.data &&
     evt.data.source === 'react-devtools-bridge'
   ) {
+console.log('%c[content-script] handleMessageFromPage()', 'font-weight: bold; color: pink;');
     backendInitialized = true;
 
     port.postMessage(evt.data.payload);
