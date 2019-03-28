@@ -13,18 +13,7 @@ function injectCode(code) {
   nullthrows(script.parentNode).removeChild(script);
 }
 
-function injectTag(source) {
-  const script = document.createElement('script');
-  script.async = false;
-  script.src = source;
-
-  // This script runs before the <head> element is created,
-  // so we add the script to <html> instead.
-  nullthrows(document.documentElement).appendChild(script);
-}
-
 let lastDetectionResult;
-console.log('%c[GlobalHook]', 'font-weight: bold; color: green;');
 
 // We want to detect when a renderer attaches, and notify the "background page"
 // (which is shared between tabs and can highlight the React icon).
@@ -72,18 +61,22 @@ window.__REACT_DEVTOOLS_GLOBAL_HOOK__.nativeWeakMap = WeakMap;
 window.__REACT_DEVTOOLS_GLOBAL_HOOK__.nativeSet = Set;
 `;
 
+// Inject the renderer interface early to support reload-and-profile.
+// HACK In order to not miss a commit, this needs to happen synchronously.
+// The only way to do that is with a sync XHR and an inline script tag.
+// TODO Only do this if we're in a reload-and-profile situation.
 const rendererURL = chrome.runtime.getURL('build/renderer.js');
 let rendererCode;
 const request = new XMLHttpRequest();
-request.addEventListener("load", function() {
+request.addEventListener('load', function() {
   rendererCode = this.responseText;
 });
 request.open('GET', rendererURL, false);
 request.send();
-console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting renderer');
 injectCode(rendererCode);
 
 // Inject a `__REACT_DEVTOOLS_GLOBAL_HOOK__` global so that React can detect that the
 // devtools are installed (and skip its suggestion to install the devtools).
-console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting hook');
-injectCode(';(' + installHook.toString() + '(window))' + saveNativeValues + detectReact);
+injectCode(
+  ';(' + installHook.toString() + '(window))' + saveNativeValues + detectReact
+);

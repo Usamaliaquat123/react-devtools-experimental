@@ -5,13 +5,11 @@ import Agent from './agent';
 
 import { attach } from './renderer';
 
-console.log('%c[backend/idnex]', 'font-weight: bold; color: teal;');
 export function initBackend(
   hook: DevToolsHook,
   agent: Agent,
   global: Object
 ): void {
-  console.log('%c[backend/idnex] initBackend()', 'font-weight: bold; color: teal;');
   const subs = [
     hook.sub(
       'renderer-attached',
@@ -35,25 +33,21 @@ export function initBackend(
   ];
 
   const attachRenderer = (id: number, renderer: ReactRenderer) => {
-    console.log('%c[backend/idnex] attachRenderer() skipping id:', 'font-weight: bold; color: teal;', id);
-    return;
-    const rendererInterface = attach(hook, id, renderer, global);
-    hook.rendererInterfaces.set(id, rendererInterface);
-    hook.emit('renderer-attached', {
-      id,
-      renderer,
-      rendererInterface,
-    });
-  };
+    // TODO Inject any not-yet-injected renderers (if we didn't reload-and-profile)
+    //const rendererInterface = attach(hook, id, renderer, global);
+    //hook.rendererInterfaces.set(id, rendererInterface);
 
-  // Connect renderers that have already injected themselves.
-  hook.renderers.forEach((renderer, id) => {
-    // attachRenderer(id, renderer);
+    // Notify the DevTools frontend about any renderers that were attached early.
     hook.emit('renderer-attached', {
       id,
       renderer,
       rendererInterface: hook.rendererInterfaces.get(id),
     });
+  };
+
+  // Connect renderers that have already injected themselves.
+  hook.renderers.forEach((renderer, id) => {
+    attachRenderer(id, renderer);
   });
 
   // Connect any new renderers that injected themselves.

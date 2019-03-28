@@ -38,7 +38,6 @@ import type {
 } from './types';
 import type { InspectedElement } from 'src/devtools/views/elements/types';
 
-console.log('%c[renderer]', 'font-weight: bold; color: purple;');
 function getInternalReactConstants(version) {
   const ReactSymbols = {
     CONCURRENT_MODE_NUMBER: 0xeacf,
@@ -163,7 +162,6 @@ export function attach(
   renderer: ReactRenderer,
   global: Object
 ): RendererInterface {
-console.log('%c[renderer] attach()', 'font-weight: bold; color: purple;', 'hook:', hook, 'renderer:', renderer);
   const {
     ReactTypeOfWork,
     ReactSymbols,
@@ -910,7 +908,6 @@ console.log('%c[renderer] attach()', 'font-weight: bold; color: purple;', 'hook:
   }
 
   function handleCommitFiberRoot(root) {
-console.log('%c[renderer] handleCommitFiberRoot()', 'font-weight: bold; color: purple;');
     const current = root.current;
     const alternate = current.alternate;
 
@@ -1545,7 +1542,6 @@ console.log('%c[renderer] handleCommitFiberRoot()', 'font-weight: bold; color: p
       return;
     }
 
-console.log('%c[renderer] startProfiling()', 'font-weight: bold; color: purple;');
     // Capture initial values as of the time profiling starts.
     // It's important we snapshot both the durations and the id-to-root map,
     // since either of these may change during the profiling session
@@ -1562,6 +1558,7 @@ console.log('%c[renderer] startProfiling()', 'font-weight: bold; color: purple;'
     isProfiling = false;
   }
 
+  // Automatically start profiling so that we don't miss timing info from initial "mount".
   if (localStorage.getItem('React::DevTools::reloadAndProfile') === 'true') {
     startProfiling();
   }

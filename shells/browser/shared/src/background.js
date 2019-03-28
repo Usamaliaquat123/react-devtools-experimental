@@ -4,9 +4,7 @@ const ports = {};
 
 const IS_FIREFOX = navigator.userAgent.indexOf('Firefox') >= 0;
 
-console.log('%c[background]', 'font-weight: bold; color: blue;');
 chrome.runtime.onConnect.addListener(function(port) {
-  console.log('%c[background] onConnect()', 'font-weight: bold; color: blue;');
   let tab = null;
   let name = null;
   if (isNumeric(port.name)) {

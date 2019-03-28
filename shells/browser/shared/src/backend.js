@@ -19,9 +19,7 @@ function welcome(event) {
 
 window.addEventListener('message', welcome);
 
-console.log('%c[backend]', 'font-weight: bold; color: orange;');
 function setup(hook) {
-  console.log('%c[backend] setup() hook', 'font-weight: bold; color: orange;');
   const Agent = require('src/backend/agent').default;
   const Bridge = require('src/bridge').default;
   const { initBackend } = require('src/backend');

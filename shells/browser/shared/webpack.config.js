@@ -2,7 +2,7 @@ const { readFileSync } = require('fs');
 const { resolve } = require('path');
 const { DefinePlugin } = require('webpack');
 
-const NODE_ENV = 'development' // process.env.NODE_ENV;
+const NODE_ENV = process.env.NODE_ENV;
 const __DEV__ = NODE_ENV !== 'production';
 
 const DEVTOOLS_VERSION = JSON.parse(

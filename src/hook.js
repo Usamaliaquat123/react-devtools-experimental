@@ -74,14 +74,8 @@ export function installHook(target: any): DevToolsHook | null {
     renderers.set(id, renderer);
 
     const attach = target.__REACT_DEVTOOLS_ATTACH__;
-console.log('%c[hook] inject() renderer', 'font-weight: bold; color: blue;', 'id:', id, 'attach fn:', attach);
 
-    const rendererInterface = attach(
-      hook,
-      id,
-      renderer,
-      target,
-    );
+    const rendererInterface = attach(hook, id, renderer, target);
     hook.rendererInterfaces.set(id, rendererInterface);
 
     const reactBuildType = hasDetectedBadDCE
