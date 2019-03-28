@@ -48,7 +48,12 @@ export function initBackend(
 
   // Connect renderers that have already injected themselves.
   hook.renderers.forEach((renderer, id) => {
-    attachRenderer(id, renderer);
+    // attachRenderer(id, renderer);
+    hook.emit('renderer-attached', {
+      id,
+      renderer,
+      rendererInterface: hook.rendererInterfaces.get(id),
+    });
   });
 
   // Connect any new renderers that injected themselves.

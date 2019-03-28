@@ -910,6 +910,7 @@ console.log('%c[renderer] attach()', 'font-weight: bold; color: purple;', 'hook:
   }
 
   function handleCommitFiberRoot(root) {
+console.log('%c[renderer] handleCommitFiberRoot()', 'font-weight: bold; color: purple;');
     const current = root.current;
     const alternate = current.alternate;
 
@@ -1540,6 +1541,10 @@ console.log('%c[renderer] attach()', 'font-weight: bold; color: purple;', 'hook:
   }
 
   function startProfiling() {
+    if (isProfiling) {
+      return;
+    }
+
 console.log('%c[renderer] startProfiling()', 'font-weight: bold; color: purple;');
     // Capture initial values as of the time profiling starts.
     // It's important we snapshot both the durations and the id-to-root map,
@@ -1555,6 +1560,10 @@ console.log('%c[renderer] startProfiling()', 'font-weight: bold; color: purple;'
 
   function stopProfiling() {
     isProfiling = false;
+  }
+
+  if (localStorage.getItem('React::DevTools::reloadAndProfile') === 'true') {
+    startProfiling();
   }
 
   return {

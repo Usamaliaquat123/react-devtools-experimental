@@ -11,7 +11,6 @@ import { attach } from 'src/backend/renderer';
 
 console.log('%c[shells/renderer] attach', 'font-weight: bold;', attach);
 
-/*
 Object.defineProperty(
     window,
     '__REACT_DEVTOOLS_ATTACH__',
@@ -22,5 +21,3 @@ Object.defineProperty(
       },
     }: Object)
   );
-*/
-export { attach };

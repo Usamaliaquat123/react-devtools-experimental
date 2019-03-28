@@ -30,7 +30,8 @@
   "web_accessible_resources": [
     "main.html",
     "panel.html",
-    "build/backend.js"
+    "build/backend.js",
+    "build/renderer.js"
   ],
 
   "background": {

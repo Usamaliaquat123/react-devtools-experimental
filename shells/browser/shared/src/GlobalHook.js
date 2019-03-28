@@ -2,7 +2,6 @@
 
 import nullthrows from 'nullthrows';
 import { installHook } from 'src/hook';
-import { attach } from 'src/renderer';
 
 function injectCode(code) {
   const script = document.createElement('script');
@@ -22,7 +21,6 @@ function injectTag(source) {
   // This script runs before the <head> element is created,
   // so we add the script to <html> instead.
   nullthrows(document.documentElement).appendChild(script);
-  // TODO ? nullthrows(script.parentNode).removeChild(script);
 }
 
 let lastDetectionResult;
@@ -74,13 +72,16 @@ window.__REACT_DEVTOOLS_GLOBAL_HOOK__.nativeWeakMap = WeakMap;
 window.__REACT_DEVTOOLS_GLOBAL_HOOK__.nativeSet = Set;
 `;
 
-localStorage.setItem('test-123', 'abc');
-
-//const rendererSource = chrome.runtime.getURL('build/renderer.js');
-//console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting renderer:', rendererSource);
-//injectTag(rendererSource);
+const rendererURL = chrome.runtime.getURL('build/renderer.js');
+let rendererCode;
+const request = new XMLHttpRequest();
+request.addEventListener("load", function() {
+  rendererCode = this.responseText;
+});
+request.open('GET', rendererURL, false);
+request.send();
 console.log('%c[GlobalHook]', 'font-weight: bold; color: green;', 'injecting renderer');
-injectCode(';(' + attach.toString() + '(window))');
+injectCode(rendererCode);
 
 // Inject a `__REACT_DEVTOOLS_GLOBAL_HOOK__` global so that React can detect that the
 // devtools are installed (and skip its suggestion to install the devtools).
