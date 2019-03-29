@@ -6,6 +6,7 @@ import { BridgeContext, StoreContext } from './context';
 import Elements from './Elements/Elements';
 import Profiler from './Profiler/Profiler';
 import Settings from './Settings/Settings';
+import SuspenseDebugger from './SuspenseDebugger/SuspenseDebugger';
 import TabBar from './TabBar';
 import { SettingsContextController } from './Settings/SettingsContext';
 import { TreeContextController } from './Elements/TreeContext';
@@ -20,7 +21,7 @@ import type { Bridge } from '../../types';
 
 export type BrowserName = 'Chrome' | 'Firefox';
 export type BrowserTheme = 'dark' | 'light';
-export type TabID = 'elements' | 'profiler' | 'settings';
+export type TabID = 'elements' | 'profiler' | 'suspense' | 'settings';
 
 export type Props = {|
   bridge: Bridge,
@@ -63,9 +64,15 @@ const settingsTab = {
   label: 'Settings',
   title: 'React Settings',
 };
+const suspenseTab = {
+  id: ('suspense': TabID),
+  icon: 'suspense',
+  label: 'Suspense',
+  title: 'Suspense Debugger',
+};
 
-const tabsWithProfiler = [elementTab, profilerTab, settingsTab];
-const tabsWithoutProfiler = [elementTab, settingsTab];
+const tabsWithProfiler = [elementTab, profilerTab, suspenseTab, settingsTab];
+const tabsWithoutProfiler = [elementTab, suspenseTab, settingsTab];
 
 export default function DevTools({
   bridge,
@@ -119,6 +126,11 @@ export default function DevTools({
       break;
     case 'settings':
       tabElement = <Settings portalContainer={settingsPortalContainer} />;
+      break;
+    case 'suspense':
+      tabElement = (
+        <SuspenseDebugger portalContainer={settingsPortalContainer} />
+      );
       break;
     case 'elements':
     default:
