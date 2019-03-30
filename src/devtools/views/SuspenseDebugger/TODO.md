@@ -1,0 +1,11 @@
+- integrate with elements tab?
+- it would be nice to have a way to jump to dom node
+- whether we're suspended should be governed by some source of truth
+  - that should be react? because it could already be suspended regardless of our reco.
+- can we make it not jump when new content loads
+- transitions between pages are sometimes broken
+- new features
+  - fuzzer: try random?
+  - map view.
+    - shows boundary map on the page. clicking selects.
+  - "click to suspend"
