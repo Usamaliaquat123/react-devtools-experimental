@@ -1,14 +1,20 @@
 // @flow
 
-import React, { Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 
 function SuspenseTree() {
+  const [show, setShow] = useState(true);
   return (
     <>
-      <h1>Suspense</h1>
-      <Suspense fallback={<h2>Loading outer</h2>}>
-        <Parent />
-      </Suspense>
+      <button onClick={() => setShow(s => !s)}>Toggle tree</button>
+      {show &&
+        <>
+          <h1>Suspense</h1>
+          <Suspense fallback={<h2>Loading outer</h2>}>
+            <Parent />
+          </Suspense>
+        </>
+      }
     </>
   );
 }

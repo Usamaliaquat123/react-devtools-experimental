@@ -30,6 +30,7 @@ type Props = {|
   children: React$Node,
   elementsPortalContainer?: Element,
   profilerPortalContainer?: Element,
+  suspensePortalContainer?: Element,
   settingsPortalContainer?: Element,
 |};
 
@@ -38,6 +39,7 @@ function SettingsContextController({
   children,
   elementsPortalContainer,
   profilerPortalContainer,
+  suspensePortalContainer,
   settingsPortalContainer,
 }: Props) {
   const [displayDensity, setDisplayDensity] = useLocalStorage<DisplayDensity>(
@@ -62,6 +64,12 @@ function SettingsContextController({
           .documentElement: any): HTMLElement)
       );
     }
+    if (suspensePortalContainer != null) {
+      array.push(
+        ((suspensePortalContainer.ownerDocument
+          .documentElement: any): HTMLElement)
+      );
+    }
     if (settingsPortalContainer != null) {
       array.push(
         ((settingsPortalContainer.ownerDocument
@@ -72,6 +80,7 @@ function SettingsContextController({
   }, [
     elementsPortalContainer,
     profilerPortalContainer,
+    suspensePortalContainer,
     settingsPortalContainer,
   ]);
 

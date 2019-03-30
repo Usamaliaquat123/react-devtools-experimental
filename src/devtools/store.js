@@ -7,7 +7,7 @@ import {
   TREE_OPERATION_RESET_CHILDREN,
   TREE_OPERATION_UPDATE_TREE_BASE_DURATION,
 } from '../constants';
-import { ElementTypeRoot } from './types';
+import { ElementTypeRoot, ElementTypeSuspense } from './types';
 import { utfDecodeString } from '../utils';
 import { __DEBUG__ } from '../constants';
 import ProfilingCache from './ProfilingCache';
@@ -92,6 +92,9 @@ export default class Store extends EventEmitter {
   _supportsProfiling: boolean = false;
 
   _supportsReloadAndProfile: boolean = false;
+
+  _suspenseRoots: Set<number> = new Set();
+  _suspenseChildren: Map<number, Set<number>> = new Map();
 
   constructor(bridge: Bridge, config?: Config) {
     super();
@@ -464,6 +467,13 @@ export default class Store extends EventEmitter {
               };
 
               this._idToElement.set(id, element);
+              // if (type === ElementTypeSuspense) {
+              //   if (parentSuspenseID === 0) {
+              //     this._suspenseRoots.add(id);
+              //   } else {
+              //     this._suspenseChildren.set(id, parentSuspenseID);
+              //   }
+              // }
 
               const oldAddedElementIDs = addedElementIDs;
               addedElementIDs = new Uint32Array(addedElementIDs.length + 1);
@@ -485,6 +495,11 @@ export default class Store extends EventEmitter {
           weightDelta = -element.weight;
 
           this._idToElement.delete(id);
+
+          // if (element.type === ElementTypeSuspense) {
+          //   this._suspenseRoots.delete(id);
+          //   this._suspenseParents.delete(id);
+          // }
 
           parentElement = ((this._idToElement.get(parentID): any): Element);
           if (parentElement == null) {

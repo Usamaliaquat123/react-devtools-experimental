@@ -43,6 +43,7 @@ export type Props = {|
   // but individual tabs (e.g. Elements, Profiling) can be rendered into portals within their browser panels.
   elementsPortalContainer?: Element,
   profilerPortalContainer?: Element,
+  suspensePortalContainer?: Element,
   settingsPortalContainer?: Element,
 |};
 
@@ -82,6 +83,7 @@ export default function DevTools({
   elementsPortalContainer,
   overrideTab,
   profilerPortalContainer,
+  suspensePortalContainer,
   settingsPortalContainer,
   showTabBar = false,
   store,
@@ -129,7 +131,7 @@ export default function DevTools({
       break;
     case 'suspense':
       tabElement = (
-        <SuspenseDebugger portalContainer={settingsPortalContainer} />
+        <SuspenseDebugger portalContainer={suspensePortalContainer} />
       );
       break;
     case 'elements':
@@ -146,6 +148,7 @@ export default function DevTools({
           elementsPortalContainer={elementsPortalContainer}
           profilerPortalContainer={profilerPortalContainer}
           settingsPortalContainer={settingsPortalContainer}
+          suspensePortalContainer={suspensePortalContainer}
         >
           <TreeContextController viewElementSource={viewElementSource}>
             <ProfilerContextController>
