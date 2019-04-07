@@ -1,16 +1,10 @@
 // @flow
 
-import React, {
-  Fragment,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import React, { Fragment, useCallback, useContext, useMemo } from 'react';
 import { ElementTypeClass, ElementTypeFunction } from 'src/devtools/types';
 import { createRegExp } from '../utils';
 import { TreeContext } from './TreeContext';
+import { ScrollAnchorContext } from './ScrollAnchorContext';
 
 import type { Element } from './types';
 
@@ -22,6 +16,7 @@ type Props = {
 };
 
 export default function ElementView({ index, style }: Props) {
+  const scrollAnchorCallbackRef = useContext(ScrollAnchorContext);
   const {
     baseDepth,
     getElementAtIndex,
@@ -40,20 +35,6 @@ export default function ElementView({ index, style }: Props) {
       selectOwner(id);
     }
   }, [id, selectOwner]);
-
-  const ref = useRef<HTMLSpanElement | null>(null);
-
-  useEffect(() => {
-    if (isSelected) {
-      if (ref.current !== null) {
-        ref.current.scrollIntoView({
-          behavior: 'auto',
-          block: 'nearest',
-          inline: 'nearest',
-        });
-      }
-    }
-  }, [isSelected]);
 
   // TODO Add click and key handlers for toggling element open/close state.
 
@@ -102,7 +83,10 @@ export default function ElementView({ index, style }: Props) {
         marginBottom: `-${style.height}px`,
       }}
     >
-      <span className={styles.Component} ref={ref}>
+      <span
+        className={styles.Component}
+        ref={isSelected ? scrollAnchorCallbackRef : null}
+      >
         <DisplayName displayName={displayName} id={((id: any): number)} />
         {key && (
           <Fragment>

@@ -12,6 +12,7 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList } from 'react-window';
 import { TreeContext } from './TreeContext';
 import { SettingsContext } from '../Settings/SettingsContext';
+import { ScrollAnchorContext } from './ScrollAnchorContext';
 import Element from './Element';
 import InspectHostNodesToggle from './InspectHostNodesToggle';
 import OwnersStack from './OwnersStack';
@@ -44,6 +45,19 @@ export default function Tree(props: Props) {
       listRef.current.scrollToItem(selectedElementIndex);
     }
   }, [listRef, selectedElementIndex]);
+
+  // When newly selected element becomes visible, it will
+  // notify us via this callback ref. We use this to scroll
+  // to its appropriate child (such as the component name).
+  const scrollAnchorRef = useCallback(scrollToNode => {
+    if (scrollToNode !== null) {
+      scrollToNode.scrollIntoView({
+        behavior: 'auto',
+        block: 'nearest',
+        inline: 'nearest',
+      });
+    }
+  }, []);
 
   // Navigate the tree with up/down arrow keys.
   useEffect(() => {
@@ -109,22 +123,24 @@ export default function Tree(props: Props) {
         <InspectHostNodesToggle />
       </div>
       <div className={styles.AutoSizerWrapper}>
-        <AutoSizer>
-          {({ height, width }) => (
-            <FixedSizeList
-              className={styles.List}
-              height={height}
-              innerElementType={InnerElementType}
-              itemCount={numElements}
-              itemData={itemData}
-              itemSize={lineHeight}
-              ref={listRef}
-              width={width}
-            >
-              {Element}
-            </FixedSizeList>
-          )}
-        </AutoSizer>
+        <ScrollAnchorContext.Provider value={scrollAnchorRef}>
+          <AutoSizer>
+            {({ height, width }) => (
+              <FixedSizeList
+                className={styles.List}
+                height={height}
+                innerElementType={InnerElementType}
+                itemCount={numElements}
+                itemData={itemData}
+                itemSize={lineHeight}
+                ref={listRef}
+                width={width}
+              >
+                {Element}
+              </FixedSizeList>
+            )}
+          </AutoSizer>
+        </ScrollAnchorContext.Provider>
       </div>
     </div>
   );
