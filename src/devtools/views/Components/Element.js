@@ -27,6 +27,19 @@ type Props = {
   style: Object,
 };
 
+
+function getScrollParent(node) {
+  if (node == null) {
+    return null;
+  }
+
+  if (node.scrollWidth > node.clientWidth) {
+    return node;
+  } else {
+    return getScrollParent(node.parentNode);
+  }
+}
+
 export default function ElementView({ data, index, style }: Props) {
   const [isHovered, setIsHovered] = useState(false);
   const {
@@ -75,11 +88,27 @@ export default function ElementView({ data, index, style }: Props) {
       lastScrolledIDRef.current = id;
 
       if (ref.current !== null) {
+        const scrollParent = getScrollParent(ref.current);
+        const scrollLeftBefore = scrollParent.scrollLeft;
         ref.current.scrollIntoView({
           behavior: 'auto',
           block: 'nearest',
           inline: 'nearest',
         });
+        const scrollLeftAfter = scrollParent.scrollLeft;
+        if (scrollLeftBefore < scrollLeftAfter) {
+          ref.current.scrollIntoView({
+            behavior: 'auto',
+            block: 'nearest',
+            inline: 'start',
+          });
+        } else if (scrollLeftBefore > scrollLeftAfter) {
+          ref.current.scrollIntoView({
+            behavior: 'auto',
+            block: 'nearest',
+            inline: 'center',
+          });          
+        }
       }
     }
   }, [id, isSelected, lastScrolledIDRef]);
