@@ -962,7 +962,7 @@ export function attach(
 
     const shouldIncludeInTree = !shouldFilterFiber(nextFiber);
     let hasChildOrderChanged = false;
-    if (nextFiber.child !== prevFiber.child) {
+    if (false) {
       // If the first child is different, we need to traverse them.
       // Each next child will be either a new child (mount) or an alternate (update).
       let nextChild = nextFiber.child;
