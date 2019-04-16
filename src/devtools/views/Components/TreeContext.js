@@ -747,6 +747,10 @@ function TreeContextController({ children, viewElementSource }: Props) {
       prevSelectedElementID.current = state.selectedElementID;
 
       if (state.selectedElementID !== null) {
+        // TODO
+        shouldSearch.current = false;
+        localStorage.setItem('savedSelection', store.getKeyPath(state.selectedElementID))
+
         let element = store.getElementByID(state.selectedElementID);
         while (element !== null && element.parentID > 0) {
           element = ((store.getElementByID(element.parentID): any): Element);
@@ -754,9 +758,33 @@ function TreeContextController({ children, viewElementSource }: Props) {
             store.toggleIsCollapsed(element.id, false);
           }
         }
+      } else {
+        localStorage.removeItem('savedSelection')
       }
     }
   }, [state.selectedElementID, store]);
+
+  const shouldSearch = useRef(true)
+  useEffect(() => {
+    const keyPath = localStorage.getItem('savedSelection')
+    if (!keyPath) {
+      return
+    }
+    const id = setInterval(() => {
+      if (!shouldSearch.current) {
+        clearInterval(id);
+        return;
+      }
+      // TODO
+      const id = store.findByKeyPath(keyPath);
+      if (id !== null) {
+        shouldSearch.current = false;
+
+        dispatch({ type: 'SELECT_ELEMENT_BY_ID', payload: id })
+      }
+    })
+    return () => clearInterval(id)
+  }, [store, dispatch])
 
   // Mutations to the underlying tree may impact this context (e.g. search results, selection state).
   useEffect(() => {

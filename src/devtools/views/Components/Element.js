@@ -170,12 +170,7 @@ export default function ElementView({ data, index, style }: Props) {
       ) : null}
       <span className={styles.Component}>
         <DisplayName displayName={displayName} id={((id: any): number)} />
-        {key && (
-          <Fragment>
-            &nbsp;<span className={styles.AttributeName}>key</span>=
-            <span className={styles.AttributeValue}>"{key}"</span>
-          </Fragment>
-        )}
+
       </span>
       {showDollarR && <span className={styles.DollarR}>&nbsp;== $r</span>}
       <span className={styles.ScrollAnchor} ref={scrollAnchorEndRef} />

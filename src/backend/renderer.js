@@ -315,7 +315,7 @@ export function attach(
   // TODO: we might want to change the data structure once we no longer suppport Stack versions of `getData`.
   // TODO: Keep in sync with getElementType()
   function getDataForFiber(fiber: Fiber): FiberData {
-    const { elementType, type, key, tag } = fiber;
+    let { elementType, type, key, tag, index } = fiber;
 
     // This is to support lazy components with a Promise as the type.
     // see https://github.com/facebook/react/pull/13397
@@ -324,6 +324,11 @@ export function attach(
       if (typeof type.then === 'function') {
         resolvedType = type._reactResult;
       }
+    }
+
+    // HACK
+    if (key == null) {
+      key = '' + index
     }
 
     let fiberData: FiberData = ((null: any): FiberData);

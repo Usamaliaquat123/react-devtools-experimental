@@ -10,7 +10,14 @@ import {
   TREE_OPERATION_RESET_CHILDREN,
   TREE_OPERATION_UPDATE_TREE_BASE_DURATION,
 } from '../constants';
-import { ElementTypeRoot } from './types';
+import {
+  ElementTypeRoot,
+  ElementTypeClass,
+  ElementTypeFunction,
+  ElementTypeForwardRef,
+  ElementTypeMemo,
+  ElementTypeSuspense,
+} from 'src/devtools/types';
 import { utfDecodeString } from '../utils';
 import { __DEBUG__ } from '../constants';
 import ProfilingCache from './ProfilingCache';
@@ -63,6 +70,10 @@ export default class Store extends EventEmitter {
 
   // At least one of the injected renderers contains (DEV only) owner metadata.
   _hasOwnerMetadata: boolean = false;
+
+  // TODO
+  _idToKeyPath: Map<number, string> = new Map();
+  _keyPathToId: Map<string, Set<number>> = new Map();
 
   // Map of ID to Element.
   // Elements are mutable (for now) to avoid excessive cloning during tree updates.
@@ -407,6 +418,37 @@ export default class Store extends EventEmitter {
     return null;
   }
 
+  getKeyPath(id) {
+    let current = this._idToElement.get(id);
+    let keyPath = [];
+    while (current != null) {
+      switch (current.type) {
+        case ElementTypeClass:
+        case ElementTypeFunction:
+        case ElementTypeForwardRef:
+        case ElementTypeMemo:
+        case ElementTypeSuspense:
+        keyPath.push((current.displayName || current.type) + ':' + current.key)
+        break
+      }
+
+      if (current.parentID === 0) {
+        break;
+      } else {
+        current = this._idToElement.get(current.parentID);
+      }
+    }    
+    return keyPath.reverse().join('$')
+  }
+
+  findByKeyPath(keyPath) {
+    const set = this._keyPathToId.get(keyPath);
+    if (!set || !set.size) {
+      return null
+    }
+    return set.keys().next().value
+  }
+
   startProfiling(): void {
     this._bridge.send('startProfiling');
 
@@ -547,6 +589,13 @@ export default class Store extends EventEmitter {
               supportsProfiling,
             });
 
+            const keyPath = this.getKeyPath(id);
+            this._idToKeyPath.set(id, keyPath)
+            if (!this._keyPathToId.has(keyPath)) {
+              this._keyPathToId.set(keyPath, new Set())
+            }
+            this._keyPathToId.get(keyPath).add(id);
+
             this._idToElement.set(id, {
               children: [],
               depth: -1,
@@ -611,6 +660,13 @@ export default class Store extends EventEmitter {
 
             this._idToElement.set(id, element);
 
+            const keyPath = this.getKeyPath(id);
+            this._idToKeyPath.set(id, keyPath)
+            if (!this._keyPathToId.has(keyPath)) {
+              this._keyPathToId.set(keyPath, new Set())
+            }
+            this._keyPathToId.get(keyPath).add(id);
+
             const oldAddedElementIDs = addedElementIDs;
             addedElementIDs = new Uint32Array(addedElementIDs.length + 1);
             addedElementIDs.set(oldAddedElementIDs);
@@ -644,6 +700,12 @@ export default class Store extends EventEmitter {
               );
             }
             this._idToElement.delete(childID);
+            const keyPath = this._idToKeyPath.get(childID);
+            this._idToKeyPath.delete(childID)
+            if (this._keyPathToId.has(keyPath)) {
+              this._keyPathToId.get(keyPath).delete(childID)
+            }
+
             child.children.forEach(recursivelyRemove);
           };
 
@@ -683,6 +745,11 @@ export default class Store extends EventEmitter {
           weightDelta = -element.weight;
 
           this._idToElement.delete(id);
+          const keyPath = this._idToKeyPath.get(id);
+          this._idToKeyPath.delete(id)
+          if (this._keyPathToId.has(keyPath)) {
+            this._keyPathToId.get(keyPath).delete(id)
+          }
 
           parentElement = ((this._idToElement.get(parentID): any): Element);
           if (parentElement == null) {
