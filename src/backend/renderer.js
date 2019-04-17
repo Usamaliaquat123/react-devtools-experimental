@@ -886,6 +886,15 @@ export function attach(
     endNextOperation(false);
   }
 
+  function recursiveUnmount(fiber) {
+    let child = fiber.child;
+    while (child !== null) {
+      recursiveUnmount(child);
+      child = child.sibling;
+    }
+    recordUnmount(fiber)
+  }
+
   function findReorderedChildrenRecursively(
     fiber: Fiber,
     nextChildren: Array<number>
@@ -900,6 +909,8 @@ export function attach(
       }
     }
   }
+
+  let lastSuspensePrimarySet = new WeakMap();
 
   // Returns whether closest unfiltered fiber parent needs to reset its child list.
   function updateFiberRecursively(
@@ -941,6 +952,8 @@ export function attach(
       ) {
         shouldResetChildren = true;
       }
+      lastSuspensePrimarySet.delete(nextFiber)
+      lastSuspensePrimarySet.delete(nextFiber.alternate)
     } else if (prevDidTimeout && !nextDidTimeOut) {
       // Fallback -> Primary:
       // 1. Unmount fallback set
@@ -950,6 +963,8 @@ export function attach(
       if (nextPrimaryChildSet !== null) {
         mountFiberRecursively(nextPrimaryChildSet, nextFiber, true);
       }
+      lastSuspensePrimarySet.set(nextFiber, nextPrimaryChildSet)
+      lastSuspensePrimarySet.set(nextFiber.alternate, nextPrimaryChildSet)
       shouldResetChildren = true;
     } else if (!prevDidTimeout && nextDidTimeOut) {
       // Primary -> Fallback:
@@ -959,12 +974,23 @@ export function attach(
       // so we'll just tell the store to "forget" about those children.
       // They might "resurface" later when we switch to primary content,
       // but from the store's point of view they will be a new tree.
-      recordRecursiveRemoveChildren(nextFiber);
+      // recordRecursiveRemoveChildren(nextFiber);
+      const primary = lastSuspensePrimarySet.get(nextFiber) || lastSuspensePrimarySet.get(nextFiber.alternate)
+      if (primary) {
+        recursiveUnmount(primary)
+      } else {
+        console.log('noooooo', primary)
+      }
+
       // 2. Mount fallback set
       const nextFallbackChildSet = nextFiber.child.sibling;
       mountFiberRecursively(nextFallbackChildSet, nextFiber, true);
       shouldResetChildren = true;
+      lastSuspensePrimarySet.delete(nextFiber)
+      lastSuspensePrimarySet.delete(nextFiber.alternate)
     } else {
+      lastSuspensePrimarySet.set(nextFiber, nextFiber.child)
+      lastSuspensePrimarySet.set(nextFiber.alternate, nextFiber.child)
       // Common case: Primary -> Primary.
       // This is the same codepath as for non-Suspense fibers.
       if (nextFiber.child !== prevFiber.child) {
