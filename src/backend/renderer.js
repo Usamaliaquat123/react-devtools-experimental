@@ -319,10 +319,52 @@ export function attach(
       : symbolOrNumber;
   }
 
+  function getKeyPath(id: number) {
+    let fiber = idToFiberMap.get(id);
+    if (fiber == null) {
+      console.warn(`Could not find Fiber with id "${id}"`);
+      return null;
+    }
+
+    let keyPath = [];
+    while (fiber !== null) {
+      const {displayName, key, index} = getDataForFiber(fiber);
+      keyPath.push({
+        displayName,
+        keyOrIndex: key !== null ? key : index,
+        // TODO: source?
+      });
+      fiber = fiber.return;
+    }
+    keyPath.reverse();
+    return keyPath;
+  }
+
+  function findIDByKeyPath(keyPath) {
+    // Super slow
+    const keyPathStr = JSON.stringify(keyPath).slice(1, -1);
+    let results = []
+    for (let [id, fiber] of idToFiberMap.entries()) {
+      if (shouldFilterFiber(id)) {
+        continue;
+      }
+      const fiberKeyPath = getKeyPath(id)
+      const fiberStr = JSON.stringify(fiberKeyPath).slice(1, -1);
+      if (keyPathStr.indexOf(fiberStr) === 0) {
+        results.push({
+          id,
+          levelsLeft: keyPath.length - fiberKeyPath.length
+        });
+      }
+    }
+    results.sort((a, b) => a.levelsLeft > b.levelsLeft ? 1 : - 1);
+    return results[0]
+  }
+
   // TODO: we might want to change the data structure once we no longer suppport Stack versions of `getData`.
   // TODO: Keep in sync with getElementType()
   function getDataForFiber(fiber: Fiber): FiberData {
-    const { elementType, type, key, tag } = fiber;
+    const { elementType, type, key, index, tag } = fiber;
 
     // This is to support lazy components with a Promise as the type.
     // see https://github.com/facebook/react/pull/13397
@@ -343,6 +385,7 @@ export function attach(
         fiberData = {
           displayName: getDisplayName(resolvedType),
           key,
+          index,
           type: ElementTypeClass,
         };
         break;
@@ -351,6 +394,7 @@ export function attach(
         fiberData = {
           displayName: getDisplayName(resolvedType),
           key,
+          index,
           type: ElementTypeFunction,
         };
         break;
@@ -358,6 +402,7 @@ export function attach(
         fiberData = {
           displayName: null,
           key,
+          index,
           type: ElementTypeEventComponent,
         };
         break;
@@ -374,6 +419,7 @@ export function attach(
         fiberData = {
           displayName,
           key,
+          index,
           type: ElementTypeEventTarget,
         };
         break;
@@ -386,6 +432,7 @@ export function attach(
         fiberData = {
           displayName,
           key,
+          index,
           type: ElementTypeForwardRef,
         };
         break;
@@ -393,6 +440,7 @@ export function attach(
         return {
           displayName: null,
           key: null,
+          index,
           type: ElementTypeRoot,
         };
       case HostPortal:
@@ -402,6 +450,7 @@ export function attach(
         return {
           displayName: null,
           key,
+          index,
           type: ElementTypeOtherOrUnknown,
         };
       case MemoComponent:
@@ -415,6 +464,7 @@ export function attach(
         fiberData = {
           displayName,
           key,
+          index,
           type: ElementTypeMemo,
         };
         break;
@@ -427,7 +477,8 @@ export function attach(
           case DEPRECATED_ASYNC_MODE_SYMBOL_STRING:
             return {
               displayName: null,
-              key: null,
+              key,
+              index,
               type: ElementTypeOtherOrUnknown,
             };
           case CONTEXT_PROVIDER_NUMBER:
@@ -442,6 +493,7 @@ export function attach(
             fiberData = {
               displayName,
               key,
+              index,
               type: ElementTypeContext,
             };
             break;
@@ -460,6 +512,7 @@ export function attach(
             fiberData = {
               displayName,
               key,
+              index,
               type: ElementTypeContext,
             };
             break;
@@ -468,6 +521,7 @@ export function attach(
             fiberData = {
               displayName: null,
               key,
+              index,
               type: ElementTypeOtherOrUnknown,
             };
             break;
@@ -477,6 +531,7 @@ export function attach(
             fiberData = {
               displayName: 'Suspense',
               key,
+              index,
               type: ElementTypeSuspense,
             };
             break;
@@ -485,6 +540,7 @@ export function attach(
             fiberData = {
               displayName: `Profiler(${fiber.memoizedProps.id})`,
               key,
+              index,
               type: ElementTypeProfiler,
             };
             break;
@@ -494,6 +550,7 @@ export function attach(
             fiberData = {
               displayName: null,
               key,
+              index,
               type: ElementTypeOtherOrUnknown,
             };
             break;
@@ -1986,7 +2043,9 @@ export function attach(
     getFiberIDFromNative,
     getFiberCommits,
     getInteractions,
+    findIDByKeyPath,
     findNativeByFiberID,
+    getKeyPath,
     getProfilingDataForDownload,
     getProfilingSummary,
     handleCommitFiberRoot,

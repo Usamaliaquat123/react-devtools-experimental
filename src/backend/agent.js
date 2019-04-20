@@ -3,7 +3,7 @@
 import EventEmitter from 'events';
 import memoize from 'memoize-one';
 import throttle from 'lodash.throttle';
-import { LOCAL_STORAGE_RELOAD_AND_PROFILE_KEY, __DEBUG__ } from '../constants';
+import { LOCAL_STORAGE_RELOAD_AND_PROFILE_KEY, LOCAL_STORAGE_LAST_KEYPATH_KEY, __DEBUG__ } from '../constants';
 import { hideOverlay, showOverlay } from './views/Highlighter';
 
 import type { RendererID, RendererInterface } from './types';
@@ -58,6 +58,10 @@ export default class Agent extends EventEmitter {
       this._isProfiling = true;
 
       localStorage.removeItem(LOCAL_STORAGE_RELOAD_AND_PROFILE_KEY);
+    }
+
+    if (this._getSavedKeyPath() !== null) {
+      this._keyPathToRestore = this._getSavedKeyPath();
     }
   }
 
@@ -316,6 +320,12 @@ export default class Agent extends EventEmitter {
     } else {
       renderer.selectElement(id);
       this._bridge.send('selectElement');
+
+      const keyPath = renderer.getKeyPath(id);
+      if (!this._lastRestoreResult || id !== this._lastRestoreResult.id) {
+        this._stopRestoringKeyPath();
+        this._storeKeyPathForNextLoad(rendererID, keyPath);
+      }
       // TODO: If there was a way to change the selected DOM element
       // in native Elements tab without forcing a switch to it, we'd do it here.
       // For now, it doesn't seem like there is a way to do that:
@@ -480,6 +490,10 @@ export default class Agent extends EventEmitter {
     //
     // this._bridge.send('operations', operations, [operations.buffer]);
     this._bridge.send('operations', operations);
+
+    if (this._keyPathToRestore) {
+      setTimeout(this._tryRestoreKeyPath)
+    }
   };
 
   _onClick = (event: MouseEvent) => {
@@ -530,4 +544,49 @@ export default class Agent extends EventEmitter {
     // because those are usually unintentional as you lift the cursor.
     { leading: false }
   );
+
+  _getSavedKeyPath = () => {
+    const savedData = localStorage.getItem(LOCAL_STORAGE_LAST_KEYPATH_KEY)
+    if (savedData !== null) {
+      return JSON.parse(savedData);
+    }
+    return null;
+  }
+
+  _tryRestoreKeyPath = throttle(() => {
+    const savedData = this._keyPathToRestore;
+    if (savedData === null) {
+      return;
+    }
+    const {rendererID, keyPath} = savedData;
+    const renderer = this._rendererInterfaces[rendererID];
+    if (renderer == null) {
+      return;
+    }
+    const result = renderer.findIDByKeyPath(keyPath);
+    if (result !== null) {
+      if (!this._lastRestoreResult || result.levelsLeft < this._lastRestoreResult.levelsLeft) {
+        this._lastRestoreResult = result;
+        this._bridge.send('selectFiber', result.id);
+      }
+      if (result.levelsLeft === 0) {
+        this._stopRestoringKeyPath();
+      }
+    }
+  }, 1000);
+
+  _stopRestoringKeyPath = () => {
+    this._keyPathToRestore = null;
+  };
+
+  _storeKeyPathForNextLoad = (rendererID, keyPath) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_LAST_KEYPATH_KEY, JSON.stringify({
+        rendererID,
+        keyPath
+      }));
+    } catch (err) {
+      // Ignore.
+    }
+  }
 }

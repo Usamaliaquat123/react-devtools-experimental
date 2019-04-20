@@ -7,5 +7,7 @@ export const TREE_OPERATION_UPDATE_TREE_BASE_DURATION = 4;
 
 export const LOCAL_STORAGE_RELOAD_AND_PROFILE_KEY =
   'React::DevTools::reloadAndProfile';
+export const LOCAL_STORAGE_LAST_SELECTION_KEYPATH_KEY =
+  'React::DevTools::lastSelectionKeypath';
 
 export const __DEBUG__ = false;
