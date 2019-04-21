@@ -342,28 +342,7 @@ export function attach(
       fiber = fiber.return;
     }
     keyPath.reverse();
-    return keyPath;
-  }
-
-  function findIDByKeyPath(keyPath) {
-    // Super slow
-    const keyPathStr = JSON.stringify(keyPath).slice(1, -1);
-    let results = []
-    for (let [id, fiber] of idToFiberMap.entries()) {
-      if (shouldFilterFiber(id)) {
-        continue;
-      }
-      const fiberKeyPath = getKeyPath(id)
-      const fiberStr = JSON.stringify(fiberKeyPath).slice(1, -1);
-      if (keyPathStr.indexOf(fiberStr) === 0) {
-        results.push({
-          id,
-          levelsLeft: keyPath.length - fiberKeyPath.length
-        });
-      }
-    }
-    results.sort((a, b) => a.levelsLeft > b.levelsLeft ? 1 : - 1);
-    return results[0] || null
+    return keyPath.slice(1); // TODO: no root
   }
 
   let trackedKeyPath = null
@@ -374,33 +353,48 @@ export function attach(
       trackedKeyPath = keyPath
   }
 
-  function tryClaimNextKeyPath(fiber, depth) {
-    if (depth === -1 || trackedKeyPath === null) {
-      return -1
+  function tryClaimNextKeyPath(fiber) {
+    if (trackedKeyPath === null) {
+      return
     }
-    const actualFrame = getKeyPathFrame(fiber);
-    const expectedFrame = trackedKeyPath[depth];
-    if (JSON.stringify(actualFrame) === JSON.stringify(expectedFrame)) {
-      if (depth > matchingDepth) {
-        while (fiber && shouldFilterFiber(fiber)) {
-          fiber = fiber.return
+    let canMatch = false
+    if (matchingFiber === null) {
+      // roots
+      // TODO: two roots with divs?
+      canMatch = fiber.return && fiber.return.return === null
+    } else {
+      if (fiber.return !== null) {
+        if (fiber.return === matchingFiber) {
+          canMatch = true;
+        } else if (fiber.return.alternate !== null) {
+          canMatch = fiber.return.alternate === matchingFiber;
         }
-        matchingFiber = fiber;
-        matchingDepth = depth;
       }
-      return depth + 1;
     }
-    return -1;
+    if (canMatch) {
+      const actualFrame = getKeyPathFrame(fiber);
+      const expectedFrame = trackedKeyPath[matchingDepth + 1];
+      if (JSON.stringify(actualFrame) === JSON.stringify(expectedFrame)) {
+        matchingFiber = fiber;
+        matchingDepth++;
+      }
+    }
   }
 
   function findFiberForTrackedKeyPath() {
     if (trackedKeyPath === null || matchingFiber === null) {
       return null
     }
-
+    let fiber = matchingFiber
+    while (fiber && shouldFilterFiber(fiber)) {
+      fiber = fiber.return
+    }
+    if (fiber === null) {
+      return null
+    }
     return {
       // TODO: find closest?
-      id: getFiberID(getPrimaryFiber(matchingFiber)),
+      id: getFiberID(getPrimaryFiber(fiber)),
       levelsLeft: trackedKeyPath.length - matchingDepth
     }
   }
@@ -903,12 +897,11 @@ export function attach(
     fiber: Fiber,
     parentFiber: Fiber | null,
     traverseSiblings: boolean,
-    trackedDepth
   ) {
     if (__DEBUG__) {
       debug('mountFiberRecursively()', fiber, parentFiber);
     }
-    const childTrackedDepth = tryClaimNextKeyPath(fiber, trackedDepth);
+    tryClaimNextKeyPath(fiber);
 
     const shouldIncludeInTree = !shouldFilterFiber(fiber);
     if (shouldIncludeInTree) {
@@ -931,7 +924,6 @@ export function attach(
           fallbackChild,
           shouldIncludeInTree ? fiber : parentFiber,
           true,
-          childTrackedDepth
         );
       }
     } else {
@@ -940,13 +932,12 @@ export function attach(
           fiber.child,
           shouldIncludeInTree ? fiber : parentFiber,
           true,
-          childTrackedDepth
         );
       }
     }
 
     if (traverseSiblings && fiber.sibling !== null) {
-      mountFiberRecursively(fiber.sibling, parentFiber, true, trackedDepth);
+      mountFiberRecursively(fiber.sibling, parentFiber, true);
     }
   }
 
@@ -1059,12 +1050,11 @@ export function attach(
     nextFiber: Fiber,
     prevFiber: Fiber,
     parentFiber: Fiber | null,
-    trackedDepth
   ): boolean {
     if (__DEBUG__) {
       debug('updateFiberRecursively()', nextFiber, parentFiber);
     }
-    const childTrackedDepth = tryClaimNextKeyPath(nextFiber, trackedDepth);
+    tryClaimNextKeyPath(nextFiber);
 
     const shouldIncludeInTree = !shouldFilterFiber(nextFiber);
     const isSuspense = nextFiber.tag === SuspenseComponent;
@@ -1093,7 +1083,6 @@ export function attach(
           nextFallbackChildSet,
           prevFallbackChildSet,
           nextFiber,
-          childTrackedDepth
         )
       ) {
         shouldResetChildren = true;
@@ -1105,7 +1094,7 @@ export function attach(
       // 2. Mount primary set
       const nextPrimaryChildSet = nextFiber.child;
       if (nextPrimaryChildSet !== null) {
-        mountFiberRecursively(nextPrimaryChildSet, nextFiber, true, childTrackedDepth);
+        mountFiberRecursively(nextPrimaryChildSet, nextFiber, true);
       }
       shouldResetChildren = true;
     } else if (!prevDidTimeout && nextDidTimeOut) {
@@ -1116,7 +1105,7 @@ export function attach(
       unmountFiberChildrenRecursively(prevFiber);
       // 2. Mount fallback set
       const nextFallbackChildSet = nextFiber.child.sibling;
-      mountFiberRecursively(nextFallbackChildSet, nextFiber, true, childTrackedDepth);
+      mountFiberRecursively(nextFallbackChildSet, nextFiber, true);
       shouldResetChildren = true;
     } else {
       // Common case: Primary -> Primary.
@@ -1138,7 +1127,6 @@ export function attach(
                 nextChild,
                 prevChild,
                 shouldIncludeInTree ? nextFiber : parentFiber,
-                childTrackedDepth
               )
             ) {
               // If a nested tree child order changed but it can't handle its own
@@ -1157,7 +1145,6 @@ export function attach(
               nextChild,
               shouldIncludeInTree ? nextFiber : parentFiber,
               false,
-              childTrackedDepth
             );
             shouldResetChildren = true;
           }
@@ -1243,7 +1230,7 @@ export function attach(
           };
         }
 
-        mountFiberRecursively(root.current, null, false, 0);
+        mountFiberRecursively(root.current, null, false);
         flushPendingEvents(root);
         currentRootID = -1;
       });
@@ -1288,17 +1275,17 @@ export function attach(
         current.memoizedState != null && current.memoizedState.element != null;
       if (!wasMounted && isMounted) {
         // Mount a new root.
-        mountFiberRecursively(current, null, false, 0);
+        mountFiberRecursively(current, null, false);
       } else if (wasMounted && isMounted) {
         // Update an existing root.
-        updateFiberRecursively(current, alternate, null, 0);
+        updateFiberRecursively(current, alternate, null);
       } else if (wasMounted && !isMounted) {
         // Unmount an existing root.
         recordUnmount(current, false);
       }
     } else {
       // Mount a new root.
-      mountFiberRecursively(current, null, false, 0);
+      mountFiberRecursively(current, null, false);
     }
 
     if (isProfiling) {
