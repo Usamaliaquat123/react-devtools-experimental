@@ -321,7 +321,10 @@ export function attach(
 
   function getKeyPathFrame(fiber) {
     // TODO: Skip Suspense fragment fibers?
-    const {displayName, key, index} = getDataForFiber(fiber);
+    let {displayName, key, index} = getDataForFiber(fiber);
+    if (fiber.tag === HostRoot) {
+      index = rootIDs.indexOf(getFiberID(getPrimaryFiber(fiber)))
+    }
     return {
       displayName,
       keyOrIndex: key !== null ? key : index,
@@ -342,45 +345,40 @@ export function attach(
       fiber = fiber.return;
     }
     keyPath.reverse();
-    return keyPath.slice(1); // TODO: no root
+    return keyPath;
   }
 
+  let rootIDs = [];
+  let shouldMatchInThisCommit = true
   let trackedKeyPath = null
   let matchingFiber = null
   let matchingDepth = -1;
 
   function setTrackedKeyPath(keyPath) {
-      trackedKeyPath = keyPath
+    trackedKeyPath = keyPath
   }
 
   function tryClaimNextKeyPath(fiber) {
-    if (trackedKeyPath === null) {
-      return
+    if (trackedKeyPath === null || !shouldMatchInThisCommit) {
+      return false
     }
-    let canMatch = false
-    if (matchingFiber === null) {
-      // roots
-      // TODO: two roots with divs?
-      canMatch = fiber.return && fiber.return.return === null
-    } else {
-      if (fiber.return !== null) {
-        if (fiber.return === matchingFiber) {
-          canMatch = true;
-        } else if (fiber.return.alternate !== null) {
-          canMatch = fiber.return.alternate === matchingFiber;
-        }
-      }
-    }
-    if (canMatch) {
+    const returnFiber = fiber.return
+    const returnAlternate = returnFiber !== null ? returnFiber.alternate : null
+    if (
+      matchingFiber === returnFiber ||
+      (returnAlternate !== null && matchingFiber === returnAlternate)
+    ) {
       const actualFrame = getKeyPathFrame(fiber);
       const expectedFrame = trackedKeyPath[matchingDepth + 1];
       if (JSON.stringify(actualFrame) === JSON.stringify(expectedFrame)) {
         matchingFiber = fiber;
         matchingDepth++;
+        return true
       }
     }
+    return false
   }
-
+  
   function findFiberForTrackedKeyPath() {
     if (trackedKeyPath === null || matchingFiber === null) {
       return null
@@ -395,7 +393,7 @@ export function attach(
     return {
       // TODO: find closest?
       id: getFiberID(getPrimaryFiber(fiber)),
-      levelsLeft: trackedKeyPath.length - matchingDepth
+      levelsLeft: trackedKeyPath.length - matchingDepth - 1
     }
   }
 
@@ -901,7 +899,13 @@ export function attach(
     if (__DEBUG__) {
       debug('mountFiberRecursively()', fiber, parentFiber);
     }
-    tryClaimNextKeyPath(fiber);
+
+    const canMatch = shouldMatchInThisCommit
+    let didMatch = tryClaimNextKeyPath(fiber);
+    shouldMatchInThisCommit = didMatch
+    if (didMatch && matchingDepth === trackedKeyPath.length - 1) {
+      shouldMatchInThisCommit = false
+    }
 
     const shouldIncludeInTree = !shouldFilterFiber(fiber);
     if (shouldIncludeInTree) {
@@ -934,6 +938,12 @@ export function attach(
           true,
         );
       }
+    }
+
+    if (didMatch) {
+      shouldMatchInThisCommit = false
+    } else {
+      shouldMatchInThisCommit = canMatch
     }
 
     if (traverseSiblings && fiber.sibling !== null) {
@@ -1054,7 +1064,13 @@ export function attach(
     if (__DEBUG__) {
       debug('updateFiberRecursively()', nextFiber, parentFiber);
     }
-    tryClaimNextKeyPath(nextFiber);
+
+    const canMatch = shouldMatchInThisCommit
+    let didMatch = tryClaimNextKeyPath(nextFiber);
+    shouldMatchInThisCommit = didMatch
+    if (didMatch && matchingDepth === trackedKeyPath.length - 1) {
+      shouldMatchInThisCommit = false
+    }
 
     const shouldIncludeInTree = !shouldFilterFiber(nextFiber);
     const isSuspense = nextFiber.tag === SuspenseComponent;
@@ -1162,6 +1178,14 @@ export function attach(
         }
       }
     }
+
+    if (didMatch) {
+      shouldMatchInThisCommit = false
+    } else {
+      shouldMatchInThisCommit = canMatch
+    }
+
+
     if (shouldIncludeInTree) {
       const isProfilingSupported = nextFiber.hasOwnProperty('treeBaseDuration');
       if (isProfilingSupported) {
@@ -1211,6 +1235,7 @@ export function attach(
       });
     } else {
       // If we have not been profiling, then we can just walk the tree and build up its current state as-is.
+      shouldMatchInThisCommit = true
       hook.getFiberRoots(rendererID).forEach(root => {
         currentRootID = getFiberID(getPrimaryFiber(root.current));
 
@@ -1230,6 +1255,7 @@ export function attach(
           };
         }
 
+        rootIDs.push(currentRootID)
         mountFiberRecursively(root.current, null, false);
         flushPendingEvents(root);
         currentRootID = -1;
@@ -1249,6 +1275,7 @@ export function attach(
     const alternate = current.alternate;
 
     currentRootID = getFiberID(getPrimaryFiber(current));
+    shouldMatchInThisCommit = true
 
     if (isProfiling) {
       // If profiling is active, store commit time and duration, and the current interactions.
@@ -1275,6 +1302,7 @@ export function attach(
         current.memoizedState != null && current.memoizedState.element != null;
       if (!wasMounted && isMounted) {
         // Mount a new root.
+        rootIDs.push(currentRootID);
         mountFiberRecursively(current, null, false);
       } else if (wasMounted && isMounted) {
         // Update an existing root.
@@ -1282,9 +1310,12 @@ export function attach(
       } else if (wasMounted && !isMounted) {
         // Unmount an existing root.
         recordUnmount(current, false);
+        const index = rootIDs.indexOf(currentRootID)
+        rootIDs.splice(index, 1)
       }
     } else {
       // Mount a new root.
+      rootIDs.push(currentRootID);
       mountFiberRecursively(current, null, false);
     }
 
