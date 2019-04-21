@@ -319,6 +319,16 @@ export function attach(
       : symbolOrNumber;
   }
 
+  function getKeyPathFrame(fiber) {
+    // TODO: Skip Suspense fragment fibers?
+    const {displayName, key, index} = getDataForFiber(fiber);
+    return {
+      displayName,
+      keyOrIndex: key !== null ? key : index,
+      // TODO: source?
+    }
+  }
+
   function getKeyPath(id: number) {
     let fiber = idToFiberMap.get(id);
     if (fiber == null) {
@@ -328,12 +338,7 @@ export function attach(
 
     let keyPath = [];
     while (fiber !== null) {
-      const {displayName, key, index} = getDataForFiber(fiber);
-      keyPath.push({
-        displayName,
-        keyOrIndex: key !== null ? key : index,
-        // TODO: source?
-      });
+      keyPath.push(getKeyPathFrame(fiber));
       fiber = fiber.return;
     }
     keyPath.reverse();
@@ -362,16 +367,42 @@ export function attach(
   }
 
   let trackedKeyPath = null
+  let matchingFiber = null
+  let matchingDepth = -1;
+
   function setTrackedKeyPath(keyPath) {
       trackedKeyPath = keyPath
   }
 
-  function findFiberForTrackedKeyPath() {
-    // TODO
-    if (trackedKeyPath) {
-      return findIDByKeyPath(trackedKeyPath)
+  function tryClaimNextKeyPath(fiber, depth) {
+    if (depth === -1 || trackedKeyPath === null) {
+      return -1
     }
-    return null
+    const actualFrame = getKeyPathFrame(fiber);
+    const expectedFrame = trackedKeyPath[depth];
+    if (JSON.stringify(actualFrame) === JSON.stringify(expectedFrame)) {
+      if (depth > matchingDepth) {
+        while (fiber && shouldFilterFiber(fiber)) {
+          fiber = fiber.return
+        }
+        matchingFiber = fiber;
+        matchingDepth = depth;
+      }
+      return depth + 1;
+    }
+    return -1;
+  }
+
+  function findFiberForTrackedKeyPath() {
+    if (trackedKeyPath === null || matchingFiber === null) {
+      return null
+    }
+
+    return {
+      // TODO: find closest?
+      id: getFiberID(getPrimaryFiber(matchingFiber)),
+      levelsLeft: trackedKeyPath.length - matchingDepth
+    }
   }
 
   // TODO: we might want to change the data structure once we no longer suppport Stack versions of `getData`.
@@ -871,11 +902,13 @@ export function attach(
   function mountFiberRecursively(
     fiber: Fiber,
     parentFiber: Fiber | null,
-    traverseSiblings = false
+    traverseSiblings: boolean,
+    trackedDepth
   ) {
     if (__DEBUG__) {
       debug('mountFiberRecursively()', fiber, parentFiber);
     }
+    const childTrackedDepth = tryClaimNextKeyPath(fiber, trackedDepth);
 
     const shouldIncludeInTree = !shouldFilterFiber(fiber);
     if (shouldIncludeInTree) {
@@ -897,7 +930,8 @@ export function attach(
         mountFiberRecursively(
           fallbackChild,
           shouldIncludeInTree ? fiber : parentFiber,
-          true
+          true,
+          childTrackedDepth
         );
       }
     } else {
@@ -905,13 +939,14 @@ export function attach(
         mountFiberRecursively(
           fiber.child,
           shouldIncludeInTree ? fiber : parentFiber,
-          true
+          true,
+          childTrackedDepth
         );
       }
     }
 
     if (traverseSiblings && fiber.sibling !== null) {
-      mountFiberRecursively(fiber.sibling, parentFiber, true);
+      mountFiberRecursively(fiber.sibling, parentFiber, true, trackedDepth);
     }
   }
 
@@ -1023,11 +1058,14 @@ export function attach(
   function updateFiberRecursively(
     nextFiber: Fiber,
     prevFiber: Fiber,
-    parentFiber: Fiber | null
+    parentFiber: Fiber | null,
+    trackedDepth
   ): boolean {
     if (__DEBUG__) {
       debug('updateFiberRecursively()', nextFiber, parentFiber);
     }
+    const childTrackedDepth = tryClaimNextKeyPath(nextFiber, trackedDepth);
+
     const shouldIncludeInTree = !shouldFilterFiber(nextFiber);
     const isSuspense = nextFiber.tag === SuspenseComponent;
     let shouldResetChildren = false;
@@ -1054,7 +1092,8 @@ export function attach(
         updateFiberRecursively(
           nextFallbackChildSet,
           prevFallbackChildSet,
-          nextFiber
+          nextFiber,
+          childTrackedDepth
         )
       ) {
         shouldResetChildren = true;
@@ -1066,7 +1105,7 @@ export function attach(
       // 2. Mount primary set
       const nextPrimaryChildSet = nextFiber.child;
       if (nextPrimaryChildSet !== null) {
-        mountFiberRecursively(nextPrimaryChildSet, nextFiber, true);
+        mountFiberRecursively(nextPrimaryChildSet, nextFiber, true, childTrackedDepth);
       }
       shouldResetChildren = true;
     } else if (!prevDidTimeout && nextDidTimeOut) {
@@ -1077,7 +1116,7 @@ export function attach(
       unmountFiberChildrenRecursively(prevFiber);
       // 2. Mount fallback set
       const nextFallbackChildSet = nextFiber.child.sibling;
-      mountFiberRecursively(nextFallbackChildSet, nextFiber, true);
+      mountFiberRecursively(nextFallbackChildSet, nextFiber, true, childTrackedDepth);
       shouldResetChildren = true;
     } else {
       // Common case: Primary -> Primary.
@@ -1098,7 +1137,8 @@ export function attach(
               updateFiberRecursively(
                 nextChild,
                 prevChild,
-                shouldIncludeInTree ? nextFiber : parentFiber
+                shouldIncludeInTree ? nextFiber : parentFiber,
+                childTrackedDepth
               )
             ) {
               // If a nested tree child order changed but it can't handle its own
@@ -1115,7 +1155,9 @@ export function attach(
           } else {
             mountFiberRecursively(
               nextChild,
-              shouldIncludeInTree ? nextFiber : parentFiber
+              shouldIncludeInTree ? nextFiber : parentFiber,
+              false,
+              childTrackedDepth
             );
             shouldResetChildren = true;
           }
@@ -1201,7 +1243,7 @@ export function attach(
           };
         }
 
-        mountFiberRecursively(root.current, null);
+        mountFiberRecursively(root.current, null, false, 0);
         flushPendingEvents(root);
         currentRootID = -1;
       });
@@ -1246,17 +1288,17 @@ export function attach(
         current.memoizedState != null && current.memoizedState.element != null;
       if (!wasMounted && isMounted) {
         // Mount a new root.
-        mountFiberRecursively(current, null);
+        mountFiberRecursively(current, null, false, 0);
       } else if (wasMounted && isMounted) {
         // Update an existing root.
-        updateFiberRecursively(current, alternate, null);
+        updateFiberRecursively(current, alternate, null, 0);
       } else if (wasMounted && !isMounted) {
         // Unmount an existing root.
         recordUnmount(current, false);
       }
     } else {
       // Mount a new root.
-      mountFiberRecursively(current, null);
+      mountFiberRecursively(current, null, false, 0);
     }
 
     if (isProfiling) {
