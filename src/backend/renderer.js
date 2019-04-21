@@ -358,7 +358,20 @@ export function attach(
       }
     }
     results.sort((a, b) => a.levelsLeft > b.levelsLeft ? 1 : - 1);
-    return results[0]
+    return results[0] || null
+  }
+
+  let trackedKeyPath = null
+  function setTrackedKeyPath(keyPath) {
+      trackedKeyPath = keyPath
+  }
+
+  function findFiberForTrackedKeyPath() {
+    // TODO
+    if (trackedKeyPath) {
+      return findIDByKeyPath(trackedKeyPath)
+    }
+    return null
   }
 
   // TODO: we might want to change the data structure once we no longer suppport Stack versions of `getData`.
@@ -2043,7 +2056,7 @@ export function attach(
     getFiberIDFromNative,
     getFiberCommits,
     getInteractions,
-    findIDByKeyPath,
+    findFiberForTrackedKeyPath,
     findNativeByFiberID,
     getKeyPath,
     getProfilingDataForDownload,
@@ -2060,6 +2073,7 @@ export function attach(
     setInHook,
     setInProps,
     setInState,
+    setTrackedKeyPath,
     startProfiling,
     stopProfiling,
   };

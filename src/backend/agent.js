@@ -398,6 +398,10 @@ export default class Agent extends EventEmitter {
     if (this._isProfiling) {
       rendererInterface.startProfiling();
     }
+
+    if (this._keyPathToRestore && this._keyPathToRestore.rendererID === rendererID) {
+      rendererInterface.setTrackedKeyPath(this._keyPathToRestore.keyPath);
+    }
   }
 
   syncSelectionFromNativeElementsPanel = () => {
@@ -492,7 +496,19 @@ export default class Agent extends EventEmitter {
     this._bridge.send('operations', operations);
 
     if (this._keyPathToRestore) {
-      setTimeout(this._tryRestoreKeyPath)
+      if (this._rendererInterfaces[this._keyPathToRestore.rendererID]) {
+        const renderer =this._rendererInterfaces[this._keyPathToRestore.rendererID]
+        const result = renderer.findFiberForTrackedKeyPath()
+        if (result !== null) {
+          if (!this._lastRestoreResult || result.levelsLeft < this._lastRestoreResult.levelsLeft) {
+            this._lastRestoreResult = result;
+            this._bridge.send('selectFiber', result.id);
+          }
+          if (result.levelsLeft === 0) {
+            this._stopRestoringKeyPath();
+          }
+        }
+      }
     }
   };
 
@@ -553,29 +569,12 @@ export default class Agent extends EventEmitter {
     return null;
   }
 
-  _tryRestoreKeyPath = throttle(() => {
-    const savedData = this._keyPathToRestore;
-    if (savedData === null) {
-      return;
-    }
-    const {rendererID, keyPath} = savedData;
-    const renderer = this._rendererInterfaces[rendererID];
-    if (renderer == null) {
-      return;
-    }
-    const result = renderer.findIDByKeyPath(keyPath);
-    if (result !== null) {
-      if (!this._lastRestoreResult || result.levelsLeft < this._lastRestoreResult.levelsLeft) {
-        this._lastRestoreResult = result;
-        this._bridge.send('selectFiber', result.id);
-      }
-      if (result.levelsLeft === 0) {
-        this._stopRestoringKeyPath();
-      }
-    }
-  }, 1000);
-
   _stopRestoringKeyPath = () => {
+    if (this._keyPathToRestore) {
+      if (this._rendererInterfaces[this._keyPathToRestore.rendererID]) {
+        this._rendererInterfaces[this._keyPathToRestore.rendererID].setTrackedKeyPath(null);
+      }
+    }
     this._keyPathToRestore = null;
   };
 
