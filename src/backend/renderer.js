@@ -349,7 +349,7 @@ export function attach(
   }
 
   let rootIDs = [];
-  let shouldMatchInThisCommit = true
+  let mightBeOnTrackedKeyPath = true
   let trackedKeyPath = null
   let matchingFiber = null
   let matchingDepth = -1;
@@ -358,8 +358,9 @@ export function attach(
     trackedKeyPath = keyPath
   }
 
-  function tryClaimNextKeyPath(fiber) {
-    if (trackedKeyPath === null || !shouldMatchInThisCommit) {
+  function tryEnterKeyPath(fiber) {
+    if (trackedKeyPath === null || !mightBeOnTrackedKeyPath) {
+      // Ignore siblings
       return false
     }
     const returnFiber = fiber.return
@@ -373,10 +374,22 @@ export function attach(
       if (JSON.stringify(actualFrame) === JSON.stringify(expectedFrame)) {
         matchingFiber = fiber;
         matchingDepth++;
-        return true
+        if (matchingDepth === trackedKeyPath.length - 1) {
+          mightBeOnTrackedKeyPath = false
+        } else {
+          mightBeOnTrackedKeyPath = true
+        }
+        // Ignore siblings
+        return false
       }
     }
-    return false
+    mightBeOnTrackedKeyPath = false
+    // Search siblings
+    return true
+  }
+
+  function tryLeaveKeyPath(shouldMatchSiblings) {
+    mightBeOnTrackedKeyPath = shouldMatchSiblings
   }
   
   function findFiberForTrackedKeyPath() {
@@ -391,7 +404,6 @@ export function attach(
       return null
     }
     return {
-      // TODO: find closest?
       id: getFiberID(getPrimaryFiber(fiber)),
       levelsLeft: trackedKeyPath.length - matchingDepth - 1
     }
@@ -900,12 +912,7 @@ export function attach(
       debug('mountFiberRecursively()', fiber, parentFiber);
     }
 
-    const canMatch = shouldMatchInThisCommit
-    let didMatch = tryClaimNextKeyPath(fiber);
-    shouldMatchInThisCommit = didMatch
-    if (didMatch && matchingDepth === trackedKeyPath.length - 1) {
-      shouldMatchInThisCommit = false
-    }
+    const keepMatching = tryEnterKeyPath(fiber);
 
     const shouldIncludeInTree = !shouldFilterFiber(fiber);
     if (shouldIncludeInTree) {
@@ -940,11 +947,7 @@ export function attach(
       }
     }
 
-    if (didMatch) {
-      shouldMatchInThisCommit = false
-    } else {
-      shouldMatchInThisCommit = canMatch
-    }
+    tryLeaveKeyPath(keepMatching)
 
     if (traverseSiblings && fiber.sibling !== null) {
       mountFiberRecursively(fiber.sibling, parentFiber, true);
@@ -1065,13 +1068,6 @@ export function attach(
       debug('updateFiberRecursively()', nextFiber, parentFiber);
     }
 
-    const canMatch = shouldMatchInThisCommit
-    let didMatch = tryClaimNextKeyPath(nextFiber);
-    shouldMatchInThisCommit = didMatch
-    if (didMatch && matchingDepth === trackedKeyPath.length - 1) {
-      shouldMatchInThisCommit = false
-    }
-
     const shouldIncludeInTree = !shouldFilterFiber(nextFiber);
     const isSuspense = nextFiber.tag === SuspenseComponent;
     let shouldResetChildren = false;
@@ -1179,13 +1175,6 @@ export function attach(
       }
     }
 
-    if (didMatch) {
-      shouldMatchInThisCommit = false
-    } else {
-      shouldMatchInThisCommit = canMatch
-    }
-
-
     if (shouldIncludeInTree) {
       const isProfilingSupported = nextFiber.hasOwnProperty('treeBaseDuration');
       if (isProfilingSupported) {
@@ -1235,7 +1224,7 @@ export function attach(
       });
     } else {
       // If we have not been profiling, then we can just walk the tree and build up its current state as-is.
-      shouldMatchInThisCommit = true
+      mightBeOnTrackedKeyPath = true
       hook.getFiberRoots(rendererID).forEach(root => {
         currentRootID = getFiberID(getPrimaryFiber(root.current));
 
@@ -1275,7 +1264,7 @@ export function attach(
     const alternate = current.alternate;
 
     currentRootID = getFiberID(getPrimaryFiber(current));
-    shouldMatchInThisCommit = true
+    mightBeOnTrackedKeyPath = true
 
     if (isProfiling) {
       // If profiling is active, store commit time and duration, and the current interactions.
