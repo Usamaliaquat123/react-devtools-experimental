@@ -3,7 +3,7 @@
 import EventEmitter from 'events';
 import memoize from 'memoize-one';
 import throttle from 'lodash.throttle';
-import { LOCAL_STORAGE_RELOAD_AND_PROFILE_KEY, LOCAL_STORAGE_LAST_KEYPATH_KEY, __DEBUG__ } from '../constants';
+import { LOCAL_STORAGE_RELOAD_AND_PROFILE_KEY, SESSION_STORAGE_LAST_KEYPATH_KEY, __DEBUG__ } from '../constants';
 import { hideOverlay, showOverlay } from './views/Highlighter';
 
 import type { RendererID, RendererInterface } from './types';
@@ -562,7 +562,7 @@ export default class Agent extends EventEmitter {
   );
 
   _getSavedKeyPath = () => {
-    const savedData = localStorage.getItem(LOCAL_STORAGE_LAST_KEYPATH_KEY)
+    const savedData = sessionStorage.getItem(SESSION_STORAGE_LAST_KEYPATH_KEY)
     if (savedData !== null) {
       return JSON.parse(savedData);
     }
@@ -580,7 +580,7 @@ export default class Agent extends EventEmitter {
 
   _storeKeyPathForNextLoad = (rendererID, keyPath) => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_LAST_KEYPATH_KEY, JSON.stringify({
+      sessionStorage.setItem(SESSION_STORAGE_LAST_KEYPATH_KEY, JSON.stringify({
         rendererID,
         keyPath
       }));
