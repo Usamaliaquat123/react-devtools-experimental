@@ -21,6 +21,7 @@ module.exports = {
     port: 8080,
     clientLogLevel: 'warning',
     stats: 'errors-only',
+    overlay: true,
   },
   entry: {
     app: './app/index.js',
@@ -30,6 +31,9 @@ module.exports = {
   resolve: {
     alias: {
       src: resolve(__dirname, '../../src'),
+      'react-dom': __DEV__
+        ? resolve('../../vendor/react-dom/react-dom.hot.development')
+        : 'react-dom',
     },
   },
   plugins: [

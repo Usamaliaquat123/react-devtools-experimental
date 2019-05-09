@@ -1,5 +1,6 @@
 /** @flow */
 
+import '../hot-runtime';
 import { createElement } from 'react';
 // $FlowFixMe Flow does not yet know about createRoot()
 import { unstable_createRoot as createRoot } from 'react-dom';
@@ -14,6 +15,11 @@ const iframe = ((document.getElementById('target'): any): HTMLIFrameElement);
 const { contentDocument, contentWindow } = iframe;
 
 installHook(contentWindow);
+
+contentWindow.__register__ = function() {};
+contentWindow.__signature__ = function() {};
+contentWindow.__shouldAccept__ = function() {};
+contentWindow.__setCurrentModule__ = function() {};
 
 const container = ((document.getElementById('devtools'): any): HTMLElement);
 

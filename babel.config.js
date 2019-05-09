@@ -27,9 +27,10 @@ module.exports = api => {
   }
   return {
     plugins: [
+      api.env('development') ? ['./shells/dev/hot-plugin'] : null,
       ['@babel/plugin-transform-flow-strip-types'],
       ['@babel/plugin-proposal-class-properties', { loose: false }],
-    ],
+    ].filter(Boolean),
     presets: [
       ['@babel/preset-env', { targets }],
       '@babel/preset-react',
